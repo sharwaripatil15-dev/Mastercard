@@ -123,31 +123,14 @@ Referencing these in our write-up shows judges we understand Mastercard's real p
 - Team size: 1–5 members; no team-hopping or private code sharing outside the team.
 - A valid submission needs **all three** artifacts — GitHub repo, solution walkthrough (deck/doc), working web prototype. Draft/incomplete work is not considered.
 
-### 9.2 Timeline
-
-| Date | Milestone |
-|---|---|
-| 10 Aug 2026 | Registration opens |
-| 20 Aug 2026 | Registration closes |
-| **31 Aug 2026, 11:59 PM IST** | **Final submission deadline** |
-| 1–4 Sep 2026 | Judging |
-| 5 Sep 2026 | Results announced |
-| 8–11 Sep 2026 | Shortlisted teams present at GFF 2026, Mumbai |
-
-### 9.3 Judging criteria (map every design decision back to these)
+### 9.2 Judging criteria (map every design decision back to these)
 - Diversity of attacks identified
 - Fidelity of attacks in simulation
 - Detection algorithm efficacy
 - Novelty of the overall solution
 - Real-world feasibility in live payments
 
-### 9.4 Prizes
-- 1st Prize: ₹2,56,000 (~$2,690)
-- 2nd Prize: ₹1,28,000 (~$1,345)
-- 3rd Prize: ₹64,000 (~$672)
-- Winning teams also get a showcase opportunity at GFF 2026, Mumbai.
-
-### 9.5 Practical tips for execution
+### 9.3 Practical tips for execution
 - Build a thin end-to-end pipeline (even if crude) on day one — a working full loop beats a polished single piece.
 - Keep the demo simple and visual: judges should *see* the loop improving round-over-round, not just read final metrics in a slide.
 - In the write-up, explicitly reference real-world stats and Mastercard's existing tools (Sections 7 & 8) — signals real-world grounding, a named judging criterion.
