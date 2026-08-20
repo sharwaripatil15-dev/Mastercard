@@ -181,6 +181,10 @@ class BaselineGenerator:
                 amount = self._random_amount_for(profile, category)
                 device_id, ip_country, is_new_device = self._device_and_ip_for(profile)
 
+                # ~3% chance of benign decline (insufficient funds, wrong CVV, expired card)
+                is_declined = self.rng.random() < 0.03
+                auth_status = "declined" if is_declined else "approved"
+
                 rows.append({
                     "transaction_id": "txn_" + uuid.uuid4().hex[:14],
                     "customer_id": profile.customer_id,
@@ -199,6 +203,7 @@ class BaselineGenerator:
                     "home_country": profile.home_country,
                     "is_new_device": is_new_device,
                     "destination_account_age_days": None,   # not applicable for genuine spend
+                    "auth_status": auth_status,
                     "label": 0,                              # 0 = genuine, 1 = fraud (set by attack generators)
                     "attack_type": None,
                 })
