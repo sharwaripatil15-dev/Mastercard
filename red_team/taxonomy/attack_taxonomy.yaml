@@ -1,0 +1,586 @@
+# =============================================================================
+# AI Defense Lab — Attack Taxonomy Configuration
+# Mastercard Innovation Challenge 2026
+#
+# Structured version of attack_taxonomy.pdf. This is the single source of
+# truth the Red Team agent, attack generators, and mutation engine all read
+# from. Each attack has:
+#   - identity fields (id/category/channel/surface)
+#   - ideate: why this attack works in the real world (for docs/judges)
+#   - simulate: the concrete synthetic-data recipe a generator function must
+#     implement, expressed as fields + patterns so it's directly codeable
+#   - mutation_knobs: which parameters the Red Team can adjust round-to-round
+#     to make the attack harder to catch
+# =============================================================================
+
+version: 1.0
+source: "attack_taxonomy.pdf (Mastercard Innovation Challenge 2026)"
+
+categories:
+  - id: identity_impersonation
+    name: "Identity & Impersonation"
+  - id: social_engineering
+    name: "Social Engineering"
+  - id: account_takeover
+    name: "Account Takeover & Credential Attacks"
+  - id: transaction_manipulation
+    name: "Transaction & Behavioral Manipulation"
+  - id: synthetic_bot_fraud
+    name: "Synthetic / Bot-Driven Fraud"
+  - id: merchant_collusion
+    name: "Merchant-Side & Collusion Fraud"
+  - id: cross_channel_chains
+    name: "Cross-Channel Attack Chains"
+  - id: adversarial_ml
+    name: "Adversarial ML Attacks (on the Defense Model Itself)"
+
+attacks:
+
+  # ---------------------------------------------------------------------
+  # 1. Identity & Impersonation
+  # ---------------------------------------------------------------------
+  - id: deepfake_voice_auth
+    name: "Deepfake Voice Authorization"
+    category: identity_impersonation
+    channel: "Call Center"
+    surface: "Voice / Identity"
+    ideate: >
+      Fraudster clones a customer's voice from public audio and calls
+      support to authorize a large transfer or lift a fraud hold,
+      impersonating the account holder.
+    simulate:
+      event_type: call_authorization
+      fields:
+        caller_id_spoofed: bool          # matches real customer's number
+        call_time_vs_history: enum       # [outside_normal_hours, normal]
+        speech_pattern_flag: enum        # [scripted_flat, natural]
+        request_amount_vs_threshold: enum # [just_under_review, normal, over_review]
+        destination_account_age_days: int # typically < 7
+      legitimate_noise: "pair with normal call-authorized transfers"
+    mutation_knobs: [call_time_vs_history, request_amount_vs_threshold, destination_account_age_days]
+
+  - id: deepfake_video_kyc_bypass
+    name: "Deepfake Video KYC Bypass"
+    category: identity_impersonation
+    channel: "App / Onboarding"
+    surface: "Identity Verification"
+    ideate: >
+      AI-generated video/face-swap used to pass liveness checks during
+      account opening or step-up verification.
+    simulate:
+      event_type: kyc_onboarding_session
+      fields:
+        blink_rate_anomaly: bool
+        lighting_consistency_score: float   # lower = more suspicious
+        frame_artifact_flag: bool
+        device_ip_mismatch: bool
+      legitimate_noise: "mix with genuine onboarding sessions"
+    mutation_knobs: [lighting_consistency_score, frame_artifact_flag, device_ip_mismatch]
+
+  - id: synthetic_identity_fraud
+    name: "Synthetic Identity Fraud"
+    category: identity_impersonation
+    channel: "App / Card"
+    surface: "Identity"
+    ideate: >
+      AI blends real PII fragments into a coherent fake identity used to
+      open accounts that behave normally at first to build trust, then
+      bust out.
+    simulate:
+      event_type: account_lifecycle
+      fields:
+        identity_plausibility_score: float
+        aging_period_days: int              # low-risk activity window
+        bust_out_trigger_day: int
+        bust_out_amount_multiplier: float    # spike vs. historical avg
+      legitimate_noise: "n/a — pattern is inherently multi-month"
+    mutation_knobs: [aging_period_days, bust_out_trigger_day, bust_out_amount_multiplier]
+
+  - id: ai_fake_id_documents
+    name: "AI-Generated Fake ID/Selfie Documents"
+    category: identity_impersonation
+    channel: "App / Onboarding"
+    surface: "Document Verification"
+    ideate: >
+      Generative image models produce convincing fake IDs/selfies to
+      defeat document-verification during onboarding or high-value
+      approval.
+    simulate:
+      event_type: document_verification
+      fields:
+        font_kerning_irregularity: bool
+        exif_metadata_mismatch: bool
+        resolution_artifact_score: float
+      legitimate_noise: "mix with genuine document submissions"
+    mutation_knobs: [exif_metadata_mismatch, resolution_artifact_score]
+
+  - id: llm_personalized_vishing
+    name: "LLM-Personalized Vishing Scripts"
+    category: identity_impersonation
+    channel: "Call Center / Phone"
+    surface: "Social Engineering"
+    ideate: >
+      LLMs generate personalized voice-phishing scripts run at scale to
+      extract OTPs or credentials.
+    simulate:
+      event_type: call_then_otp_sequence
+      fields:
+        otp_request_delay_sec: int          # short delay after inbound call
+        targets_in_window: int              # customers targeted in short window
+        call_duration_similarity_score: float
+        geo_clustering_flag: bool
+      legitimate_noise: "vary delay/duration for organic-looking noise cases"
+    mutation_knobs: [otp_request_delay_sec, targets_in_window, geo_clustering_flag]
+
+  # ---------------------------------------------------------------------
+  # 2. Social Engineering
+  # ---------------------------------------------------------------------
+  - id: hyper_personalized_phishing
+    name: "Hyper-Personalized Phishing (Email/SMS)"
+    category: social_engineering
+    channel: "Email / SMS"
+    surface: "Social Engineering"
+    ideate: >
+      LLMs scrape public data to write tailored phishing referencing real
+      personal details, raising click-through and credential-harvest rates.
+    simulate:
+      event_type: click_to_cashout_sequence
+      fields:
+        seconds_login_after_click: int
+        new_device_flag: bool
+        password_reset_after_login: bool
+        transfer_amount_after_reset: float
+      legitimate_noise: "some genuine link clicks with no follow-on risk events"
+    mutation_knobs: [seconds_login_after_click, transfer_amount_after_reset]
+
+  - id: fake_chatbot_bank_support
+    name: "AI Chatbot Impersonating Bank Support"
+    category: social_engineering
+    channel: "Web / Chat"
+    surface: "Social Engineering"
+    ideate: >
+      Fraudulent chatbot posing as bank support tricks customers into
+      revealing OTPs/session tokens.
+    simulate:
+      event_type: otp_entry_event
+      fields:
+        seconds_since_otp_generated: int    # very short = suspicious
+        device_familiarity: enum            # [unfamiliar, familiar]
+        session_referral_domain: enum       # [non_bank_domain, bank_domain]
+      legitimate_noise: "vary referral domain for organic cases"
+    mutation_knobs: [seconds_since_otp_generated, session_referral_domain]
+
+  - id: ai_romance_investment_scam
+    name: "AI-Scaled Romance/Investment Scams"
+    category: social_engineering
+    channel: "App / Wire"
+    surface: "Social Engineering"
+    ideate: >
+      Chatbots run long-term personalized scam conversations, gradually
+      persuading victims toward escalating transfers to fraud accounts.
+    simulate:
+      event_type: escalating_transfer_series
+      fields:
+        num_trust_building_transfers: int
+        escalation_rate: float               # growth factor per transfer
+        destination_in_known_ring: bool
+        span_days: int
+      legitimate_noise: "n/a — pattern is inherently a multi-week series"
+    mutation_knobs: [escalation_rate, span_days, num_trust_building_transfers]
+
+  - id: business_email_compromise
+    name: "Business Email Compromise (BEC)"
+    category: social_engineering
+    channel: "Email / Wire"
+    surface: "Social Engineering"
+    ideate: >
+      AI mimics an executive's writing style to authorize an urgent,
+      out-of-cycle wire transfer.
+    simulate:
+      event_type: wire_initiation
+      fields:
+        bypassed_approval_workflow: bool
+        urgency_language_score: float
+        destination_first_use: bool
+        timing_flag: enum                   # [end_of_day, pre_holiday, normal]
+      legitimate_noise: "some genuine urgent wires exist — keep base rate realistic"
+    mutation_knobs: [urgency_language_score, timing_flag]
+
+  - id: ai_refined_urgency_scams
+    name: "AI-Refined Urgency Scams"
+    category: social_engineering
+    channel: "SMS / Call"
+    surface: "Social Engineering"
+    ideate: >
+      Attackers A/B test AI-generated urgency scenarios to maximize
+      compliance rates.
+    simulate:
+      event_type: alert_to_transfer_burst
+      fields:
+        transfer_amount_vs_daily_limit: float  # clustered just under limit
+        burst_count: int
+        time_since_alert_sec: int
+      legitimate_noise: "n/a"
+    mutation_knobs: [transfer_amount_vs_daily_limit, time_since_alert_sec]
+
+  # ---------------------------------------------------------------------
+  # 3. Account Takeover & Credential Attacks
+  # ---------------------------------------------------------------------
+  - id: ai_credential_stuffing
+    name: "AI-Accelerated Credential Stuffing"
+    category: account_takeover
+    channel: "App / Web"
+    surface: "Behavioral / Automated"
+    ideate: >
+      ML-generated credential permutations speed up stuffing attacks
+      against login endpoints using leaked lists.
+    simulate:
+      event_type: login_attempt_sequence
+      fields:
+        failed_attempts_per_ip: int
+        unique_accounts_targeted: int
+        time_window_sec: int
+        success_followed_by_profile_change: bool
+      legitimate_noise: "some organic failed-login clusters (forgotten password)"
+    mutation_knobs: [failed_attempts_per_ip, time_window_sec]
+
+  - id: ai_captcha_bypass
+    name: "AI CAPTCHA Bypass"
+    category: account_takeover
+    channel: "App / Web"
+    surface: "Automated / Bot"
+    ideate: >
+      CAPTCHA-solving services let bots pass human-verification during
+      login or transaction steps.
+    simulate:
+      event_type: session_interaction_log
+      fields:
+        mouse_interval_variance: float       # near-zero = non-human
+        scroll_variance: float
+        captcha_passed: bool
+      legitimate_noise: "vary variance to mimic real bot-detection edge cases"
+    mutation_knobs: [mouse_interval_variance, scroll_variance]
+
+  - id: session_device_fingerprint_spoofing
+    name: "Session/Device Fingerprint Spoofing"
+    category: account_takeover
+    channel: "App"
+    surface: "Device Identity"
+    ideate: >
+      Generative tools fabricate plausible device fingerprints so
+      fraudulent sessions appear to be the legitimate device.
+    simulate:
+      event_type: device_fingerprint_record
+      fields:
+        os_browser_combo_valid: bool        # false = internally inconsistent
+        risk_transaction_amount: float
+      legitimate_noise: "n/a — invalid combo is the tell"
+    mutation_knobs: [os_browser_combo_valid]
+
+  - id: ml_account_enumeration
+    name: "ML-Driven Account Enumeration"
+    category: account_takeover
+    channel: "App / API"
+    surface: "Automated"
+    ideate: >
+      ML predicts valid account numbers/emails from partial data to
+      identify real targets before further attacks.
+    simulate:
+      event_type: api_probe_log
+      fields:
+        probe_pattern: enum                  # [sequential, pattern_based]
+        miss_to_hit_ratio: float
+        source_ip_concentration: float
+      legitimate_noise: "n/a"
+    mutation_knobs: [probe_pattern, source_ip_concentration]
+
+  # ---------------------------------------------------------------------
+  # 4. Transaction & Behavioral Manipulation
+  # ---------------------------------------------------------------------
+  - id: card_testing_bots
+    name: "Card Testing Bots"
+    category: transaction_manipulation
+    channel: "Card / E-commerce"
+    surface: "Automated"
+    ideate: >
+      Bots rapidly submit small transactions across many merchants to
+      validate stolen cards before large purchases.
+    simulate:
+      event_type: micro_auth_burst
+      fields:
+        auth_amount_range: [1.0, 2.0]
+        distinct_merchants_touched: int
+        window_minutes: int
+        decline_rate: float
+        followup_large_txn_flag: bool
+      legitimate_noise: "n/a — burst pattern itself is the tell"
+    mutation_knobs: [auth_amount_range, distinct_merchants_touched, window_minutes]
+
+  - id: low_and_slow_structuring
+    name: "Low-and-Slow Structuring"
+    category: transaction_manipulation
+    channel: "Any Rail"
+    surface: "Behavioral"
+    ideate: >
+      Large transfer split into smaller transactions over days to stay
+      under single-transaction thresholds.
+    simulate:
+      event_type: multi_day_transfer_series
+      fields:
+        num_transactions: int
+        per_txn_amount_vs_threshold: float   # each under review threshold
+        span_days: int
+        same_destination: bool
+      legitimate_noise: "n/a — requires velocity/rolling-window features to detect"
+    mutation_knobs: [num_transactions, per_txn_amount_vs_threshold, span_days]
+
+  - id: high_velocity_automated_attacks
+    name: "High-Velocity Automated Attacks"
+    category: transaction_manipulation
+    channel: "Any Rail"
+    surface: "Automated"
+    ideate: >
+      Bots execute many transactions rapidly before fraud systems can
+      react, exploiting detection latency.
+    simulate:
+      event_type: rapid_txn_sequence
+      fields:
+        interval_sec: float                  # sub-second to few seconds
+        destination_count: int
+        source_account: single
+      legitimate_noise: "n/a"
+    mutation_knobs: [interval_sec, destination_count]
+
+  - id: adaptive_evasion
+    name: "Adaptive Evasion (Post-Detection Behavior Change)"
+    category: transaction_manipulation
+    channel: "Any Rail"
+    surface: "Adversarial"
+    ideate: >
+      After a flagged/declined transaction, the attacker's AI adjusts
+      amount, timing, or destination on retry to avoid the same trigger.
+    simulate:
+      event_type: flagged_then_retry_pair
+      fields:
+        initial_decision: enum               # [flagged, declined]
+        retry_amount_delta: float
+        retry_timing_delta_sec: int
+        retry_destination_changed: bool
+        evasion_sophistication_level: int     # increases across rounds
+      legitimate_noise: "n/a — this attack IS the mutation loop in miniature"
+    mutation_knobs: [retry_amount_delta, retry_timing_delta_sec, evasion_sophistication_level]
+
+  - id: threshold_tuned_attacks
+    name: "Threshold-Tuned Attacks"
+    category: transaction_manipulation
+    channel: "Any Rail"
+    surface: "Adversarial"
+    ideate: >
+      Attacker AI probes the fraud model's approximate decision boundary
+      and crafts transactions just beneath it.
+    simulate:
+      event_type: boundary_probing_txn
+      fields:
+        amount_vs_known_threshold: float     # clustered just under
+        metadata_unremarkable: bool
+      legitimate_noise: "n/a"
+    mutation_knobs: [amount_vs_known_threshold]
+
+  # ---------------------------------------------------------------------
+  # 5. Synthetic / Bot-Driven Fraud
+  # ---------------------------------------------------------------------
+  - id: fully_synthetic_customer_profiles
+    name: "Fully Synthetic Customer Profiles"
+    category: synthetic_bot_fraud
+    channel: "App"
+    surface: "Identity / Behavioral"
+    ideate: >
+      AI generates entire fake customer profiles designed to pass trust
+      scoring as an "aged" legitimate customer.
+    simulate:
+      event_type: fabricated_history_profile
+      fields:
+        history_span_months: int
+        merchant_interaction_plausibility: float
+        cashout_trigger_amount: float
+      legitimate_noise: "n/a"
+    mutation_knobs: [history_span_months, cashout_trigger_amount]
+
+  - id: bot_networks_human_mimicry
+    name: "Bot Networks Mimicking Human Shopping Behavior"
+    category: synthetic_bot_fraud
+    channel: "E-commerce / App"
+    surface: "Automated"
+    ideate: >
+      Coordinated bots simulate realistic browsing to avoid bot-detection
+      before a fraudulent purchase/cash-out.
+    simulate:
+      event_type: multi_account_session_convergence
+      fields:
+        session_timing_repetition_score: float
+        accounts_converging_on_checkout: int
+      legitimate_noise: "n/a"
+    mutation_knobs: [session_timing_repetition_score]
+
+  - id: ai_fake_reviews_merchant_activity
+    name: "AI-Generated Fake Reviews/Merchant Activity"
+    category: synthetic_bot_fraud
+    channel: "Merchant Platform"
+    surface: "Trust Manipulation"
+    ideate: >
+      Generative text produces fake reviews/order activity to legitimize
+      a fraudulent merchant before running a scam.
+    simulate:
+      event_type: merchant_trust_profile
+      fields:
+        review_to_order_ratio_anomaly: float
+        buyer_network_concentration: float    # mule-account clustering
+      legitimate_noise: "n/a"
+    mutation_knobs: [review_to_order_ratio_anomaly, buyer_network_concentration]
+
+  # ---------------------------------------------------------------------
+  # 6. Merchant-Side & Collusion Fraud
+  # ---------------------------------------------------------------------
+  - id: fake_merchant_accounts
+    name: "Fake Merchant Accounts"
+    category: merchant_collusion
+    channel: "Merchant Onboarding"
+    surface: "Identity"
+    ideate: >
+      AI-generated business documentation used to onboard a fraudulent
+      merchant account for later abuse.
+    simulate:
+      event_type: merchant_onboarding_record
+      fields:
+        doc_verification_anomaly: bool
+        days_to_first_high_value_batch: int
+      legitimate_noise: "n/a"
+    mutation_knobs: [days_to_first_high_value_batch]
+
+  - id: triangulation_fraud
+    name: "Triangulation Fraud"
+    category: merchant_collusion
+    channel: "E-commerce"
+    surface: "Merchant / Card"
+    ideate: >
+      A fake storefront fulfills genuine orders using stolen cards,
+      pocketing the customer's real payment.
+    simulate:
+      event_type: merchant_dual_stream
+      fields:
+        genuine_payment_stream: bool
+        stolen_card_fulfillment_stream: bool
+        stream_overlap_ratio: float
+      legitimate_noise: "n/a"
+    mutation_knobs: [stream_overlap_ratio]
+
+  - id: refund_chargeback_fraud
+    name: "Refund/Chargeback Fraud"
+    category: merchant_collusion
+    channel: "Merchant / Card"
+    surface: "Transaction Manipulation"
+    ideate: >
+      AI scripts automate refund/chargeback abuse at scale, exploiting
+      merchant dispute processes.
+    simulate:
+      event_type: refund_ratio_anomaly
+      fields:
+        refund_ratio_vs_baseline: float
+        time_clustering_score: float
+        target_merchant_concentration: float
+      legitimate_noise: "n/a"
+    mutation_knobs: [refund_ratio_vs_baseline, time_clustering_score]
+
+  # ---------------------------------------------------------------------
+  # 7. Cross-Channel Attack Chains
+  # ---------------------------------------------------------------------
+  - id: phishing_ato_wire_chain
+    name: "Phishing → ATO → Wire Transfer Chain"
+    category: cross_channel_chains
+    channel: "Email + App + Call Center"
+    surface: "Multi-Stage"
+    ideate: >
+      Orchestrated attack spans channels: phishing steals credentials,
+      ATO happens in-app, wire authorized via call center — evading
+      single-channel detection.
+    simulate:
+      event_type: three_stream_chain
+      fields:
+        email_click_timestamp: datetime
+        app_login_new_device_timestamp: datetime
+        call_center_wire_timestamp: datetime
+        total_window_minutes: int
+      legitimate_noise: "n/a — requires multi-stream correlation to detect"
+    mutation_knobs: [total_window_minutes]
+
+  - id: sim_swap_fraud
+    name: "SIM-Swap Enabled Fraud"
+    category: cross_channel_chains
+    channel: "Telecom + App"
+    surface: "Multi-Stage"
+    ideate: >
+      AI-assisted social engineering of telecom support enables a SIM
+      swap, used to intercept OTPs and take over the banking app.
+    simulate:
+      event_type: sim_change_then_otp_burst
+      fields:
+        sim_change_timestamp: datetime
+        otp_auth_burst_count: int
+        password_resets_count: int
+      legitimate_noise: "n/a"
+    mutation_knobs: [otp_auth_burst_count]
+
+  # ---------------------------------------------------------------------
+  # 8. Adversarial ML Attacks (on the Defense Model Itself)
+  # ---------------------------------------------------------------------
+  - id: model_evasion
+    name: "Model Evasion"
+    category: adversarial_ml
+    channel: "Any"
+    surface: "Adversarial / ML"
+    ideate: >
+      Attacker crafts transactions to sit just below the classifier's
+      decision boundary, based on observed/inferred model behavior.
+    simulate:
+      event_type: perturbed_flagged_transaction
+      fields:
+        base_transaction_id: ref             # references a known-flagged txn
+        perturbation_fields: list             # [amount, timing, merchant_category]
+        perturbation_magnitude: float
+      legitimate_noise: "n/a"
+    mutation_knobs: [perturbation_magnitude, perturbation_fields]
+
+  - id: data_poisoning
+    name: "Data Poisoning"
+    category: adversarial_ml
+    channel: "Any"
+    surface: "Adversarial / ML"
+    ideate: >
+      Attacker injects manipulated data during a retraining window to
+      gradually shift the fraud model's decision threshold.
+    simulate:
+      event_type: poisoned_training_subset
+      fields:
+        mislabeled_as: "legitimate"
+        correlation_to_attack_features: float
+        injection_ratio: float                # % of retraining batch
+      legitimate_noise: "n/a — used to test robustness, not live scoring"
+    mutation_knobs: [correlation_to_attack_features, injection_ratio]
+
+  - id: model_extraction_probing
+    name: "Model Extraction / Probing"
+    category: adversarial_ml
+    channel: "Any"
+    surface: "Adversarial / ML"
+    ideate: >
+      Attacker repeatedly submits near-identical test transactions to
+      reverse-engineer the model's decision rules.
+    simulate:
+      event_type: probing_sequence
+      fields:
+        base_transaction_id: ref
+        single_feature_variations: int
+        submission_rate_sec: float
+        consistent_source: bool
+      legitimate_noise: "n/a"
+    mutation_knobs: [single_feature_variations, submission_rate_sec]
