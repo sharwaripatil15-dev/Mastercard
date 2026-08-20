@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/synthetic_attacks/*
+data/round_history/*
+!data/synthetic_attacks/.gitkeep
+!data/round_history/.gitkeep
+node_modules/
+.DS_Store
